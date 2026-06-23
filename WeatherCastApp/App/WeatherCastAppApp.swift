@@ -14,6 +14,7 @@ struct WeatherCastAppApp: App {
     var body: some Scene {
         WindowGroup {
             MainDashboardView()
+                .modelContainer(for:SavedCity.self)
         }
     }
 }

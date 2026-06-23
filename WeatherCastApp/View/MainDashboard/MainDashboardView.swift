@@ -1,6 +1,9 @@
 import SwiftUI
+import SwiftData
 
 struct MainDashboardView: View {
+    @Environment(\.modelContext) private var modelContext
+    
     @State private var showSearch: Bool = false
     @State private var showSavedLocations: Bool = false
     @State private var selectedForecast: DailyForecast? = nil
@@ -31,9 +34,19 @@ struct MainDashboardView: View {
                                 .padding(.top, 12)
                             
                             VStack(spacing: 6) {
-                                Text(city.city)
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                                    .foregroundStyle(AppTheme.primaryText(hour: currentHour))
+                                HStack(spacing: 10) {
+                                    Text(city.city)
+                                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                                        .foregroundStyle(AppTheme.primaryText(hour: currentHour))
+                                    
+                                    Button {
+                                        viewModel.toggleSaveCurrentCity()
+                                    } label: {
+                                        Image(systemName: viewModel.isCurrentCitySaved ? "bookmark.fill" : "bookmark")
+                                            .font(.system(size: 24))
+                                            .foregroundStyle(AppTheme.accent(hour: currentHour))
+                                    }
+                                }
                                 
                                 Text("\(city.temperature)°")
                                     .font(.system(size: 90, weight: .thin, design: .rounded))
@@ -117,13 +130,22 @@ struct MainDashboardView: View {
                 }
             }
             .sheet(isPresented: $showSavedLocations) {
-                SavedLocationsView(hour: currentHour, savedLocations: viewModel.savedCities) { selectedCity in
-                    Task {
-                        await viewModel.fetchWeather(for: selectedCity)
+                SavedLocationsView(
+                    hour: currentHour,
+                    savedLocations: viewModel.savedCities,
+                    onCitySelected: { selectedCity in
+                        Task {
+                            await viewModel.fetchWeather(for: selectedCity)
+                        }
+                    },
+                    onDeleteCity: {
+                        cityToDelete in
+                        viewModel.deleteCity(cityToDelete)
                     }
-                }
+                )
             }
             .task {
+                viewModel.setupContext(modelContext)
                 if viewModel.cityWeather == nil {
                     locationManager.requestPermission()
                 }

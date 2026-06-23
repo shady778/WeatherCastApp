@@ -1,10 +1,3 @@
-//
-//  WeatherService.swift
-//  WeatherCastApp
-//
-//  Created by shady ramadan on 22/06/2026.
-//
-
 import Foundation
 class WeatherService: WeatherServiceProtocol {
     private let apiKey = "15a27e37377d435f91e205319262501"
@@ -12,7 +5,29 @@ class WeatherService: WeatherServiceProtocol {
     func fetchWeather(for city: String) async throws -> WeatherResult {
         let encodedCity = city.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? city
         let urlString = "https://api.weatherapi.com/v1/forecast.json?key=\(apiKey)&q=\(encodedCity)&days=3&aqi=no&alerts=no"
+        return try await fetchAndParse(urlString: urlString)
+    }
+    
+    func fetchWeather(lat: Double, lon: Double) async throws -> WeatherResult {
+        let urlString = "https://api.weatherapi.com/v1/forecast.json?key=\(apiKey)&q=\(lat),\(lon)&days=3&aqi=no&alerts=no"
+        return try await fetchAndParse(urlString: urlString)
+    }
+    
+    func searchCities(query: String) async throws -> [SearchResult] {
+        let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+        let urlString = "https://api.weatherapi.com/v1/search.json?key=\(apiKey)&q=\(encodedQuery)"
         
+        guard let url = URL(string: urlString) else {
+            throw URLError(.badURL)
+        }
+        
+        let (data, _) = try await URLSession.shared.data(from: url)
+        return try JSONDecoder().decode([SearchResult].self, from: data)
+    }
+    
+    // MARK: - Private Helpers
+    
+    private func fetchAndParse(urlString: String) async throws -> WeatherResult {
         guard let url = URL(string: urlString) else {
             throw URLError(.badURL)
         }

@@ -5,7 +5,7 @@ struct LocationSearchView: View {
     var onCitySelected: ((String) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
-    @State private var query: String = ""
+    @StateObject private var searchVM = SearchViewModel()
 
     var body: some View {
         ZStack {
@@ -30,12 +30,13 @@ struct LocationSearchView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 16)
                 
+                // MARK: - Search Bar
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(AppTheme.secondaryText(hour: hour))
 
-                    TextField("Enter city name…", text: $query)
+                    TextField("Enter city name…", text: $searchVM.searchText)
                         .font(.system(size: 16, design: .rounded))
                         .foregroundStyle(AppTheme.primaryText(hour: hour))
                         .tint(AppTheme.accent(hour: hour))
@@ -43,8 +44,16 @@ struct LocationSearchView: View {
                             submitSearch()
                         }
 
-                    if !query.isEmpty {
-                        Button { query = "" } label: {
+                    if searchVM.isSearching {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .tint(AppTheme.accent(hour: hour))
+                    }
+
+                    if !searchVM.searchText.isEmpty {
+                        Button {
+                            searchVM.clearSearch()
+                        } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 15))
                                 .foregroundStyle(AppTheme.tertiaryText(hour: hour))
@@ -56,38 +65,62 @@ struct LocationSearchView: View {
                 .glassCard(hour: hour, cornerRadius: 14)
                 .padding(.horizontal, 20)
 
+                // MARK: - Results
                 ScrollView {
-                    VStack(spacing: 16) {
-                        if !query.trimmingCharacters(in: .whitespaces).isEmpty {
-                            Button {
-                                submitSearch()
-                            } label: {
-                                HStack {
-                                    Image(systemName: "cloud.sun.fill")
-                                        .font(.system(size: 22))
-                                        .foregroundStyle(AppTheme.accent(hour: hour))
-                                    
-                                    Text("Get weather for \"\(query)\"")
-                                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                                        .foregroundStyle(AppTheme.primaryText(hour: hour))
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 14, weight: .semibold))
+                    VStack(spacing: 10) {
+                        if !searchVM.suggestions.isEmpty {
+                            ForEach(searchVM.suggestions) { result in
+                                Button {
+                                    onCitySelected?(result.name)
+                                    dismiss()
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "mappin.circle.fill")
+                                            .font(.system(size: 22))
+                                            .foregroundStyle(AppTheme.accent(hour: hour))
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(result.name)
+                                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                                .foregroundStyle(AppTheme.primaryText(hour: hour))
+                                            
+                                            Text("\(result.region), \(result.country)")
+                                                .font(.system(size: 13, design: .rounded))
+                                                .foregroundStyle(AppTheme.secondaryText(hour: hour))
+                                                .lineLimit(1)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(AppTheme.secondaryText(hour: hour))
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 14)
+                                    .glassCard(hour: hour, cornerRadius: 16)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } else if !searchVM.searchText.trimmingCharacters(in: .whitespaces).isEmpty && !searchVM.isSearching {
+                            // User typed something, debounce finished, no results
+                            if searchVM.searchText.count >= 2 {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.system(size: 40))
+                                        .foregroundStyle(AppTheme.tertiaryText(hour: hour))
+                                    Text("No cities found for \"\(searchVM.searchText)\"")
+                                        .font(.system(size: 15, design: .rounded))
                                         .foregroundStyle(AppTheme.secondaryText(hour: hour))
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 16)
-                                .glassCard(hour: hour, cornerRadius: 16)
+                                .padding(.top, 40)
                             }
-                            .buttonStyle(.plain)
-                        } else {
+                        } else if searchVM.searchText.isEmpty {
                             VStack(spacing: 12) {
                                 Image(systemName: "magnifyingglass")
                                     .font(.system(size: 40))
                                     .foregroundStyle(AppTheme.tertiaryText(hour: hour))
-                                Text("Type a city name above to search")
+                                Text("Type a city name to search")
                                     .font(.system(size: 15, design: .rounded))
                                     .foregroundStyle(AppTheme.secondaryText(hour: hour))
                             }
@@ -95,14 +128,14 @@ struct LocationSearchView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 24)
+                    .padding(.top, 20)
                 }
             }
         }
     }
 
     private func submitSearch() {
-        let cleanedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanedQuery = searchVM.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !cleanedQuery.isEmpty {
             onCitySelected?(cleanedQuery)
             dismiss()

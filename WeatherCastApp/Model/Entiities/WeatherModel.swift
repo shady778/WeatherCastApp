@@ -42,6 +42,8 @@ struct CityWeather: Identifiable, Equatable {
     let condition: WeatherCondition
     let high: Int
     let low: Int
+    let formattedLocalTime: String
+    let localHour: Int 
  
     static func == (lhs: CityWeather, rhs: CityWeather) -> Bool {
         lhs.city == rhs.city

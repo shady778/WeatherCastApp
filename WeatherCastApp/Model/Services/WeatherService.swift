@@ -24,13 +24,29 @@ class WeatherService: WeatherServiceProtocol {
         let sfSymbol = mapConditionToSymbol(conditionLabel)
         let weatherCondition = WeatherCondition(label: conditionLabel, sfSymbol: sfSymbol)
         
-        let currentCityWeather = CityWeather(
-            city: response.location.name,
-            temperature: Int(response.current.temp_c),
-            condition: weatherCondition,
-            high: Int(response.forecast.forecastday.first?.day.maxtemp_c ?? 0),
-            low: Int(response.forecast.forecastday.first?.day.mintemp_c ?? 0)
-        )
+        let rawLocalTime = response.location.localtime
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd HH:mm"
+                
+                var timeString = "00:00"
+                var hourInt = Calendar.current.component(.hour, from: Date())
+                
+                if let date = formatter.date(from: rawLocalTime) {
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateFormat = "HH:mm"
+                    timeString = timeFormatter.string(from: date)
+                    hourInt = Calendar.current.component(.hour, from: date)
+                }
+                
+                let currentCityWeather = CityWeather(
+                    city: response.location.name,
+                    temperature: Int(response.current.temp_c),
+                    condition: weatherCondition,
+                    high: Int(response.forecast.forecastday.first?.day.maxtemp_c ?? 0),
+                    low: Int(response.forecast.forecastday.first?.day.mintemp_c ?? 0),
+                    formattedLocalTime: timeString,
+                    localHour: hourInt
+                )
         
         let dailyForecasts = response.forecast.forecastday.map { dayData in
             let label = parseDayName(from: dayData.date)

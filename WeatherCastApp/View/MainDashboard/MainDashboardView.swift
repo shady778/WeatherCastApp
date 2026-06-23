@@ -1,13 +1,16 @@
 import SwiftUI
 
 struct MainDashboardView: View {
-    @State private var currentHour: Int = Calendar.current.component(.hour, from: Date())
     @State private var showSearch: Bool = false
     @State private var showSavedLocations: Bool = false
     @State private var selectedForecast: DailyForecast? = nil
     @State private var navigateToHourly: Bool = false
     
     @StateObject private var viewModel = WeatherViewModel()
+    
+    private var currentHour: Int {
+        viewModel.cityWeather?.localHour ?? Calendar.current.component(.hour, from: Date())
+    }
     
     var body: some View {
         NavigationStack {
@@ -162,7 +165,7 @@ struct MainDashboardView: View {
                 Image(systemName: AppTheme.isMorning(hour: currentHour) ? "sun.max.fill" : "moon.fill")
                     .symbolRenderingMode(.multicolor)
                     .font(.system(size: 15))
-                Text(String(format: "%02d:00", currentHour))
+                Text(viewModel.cityWeather?.formattedLocalTime ?? "00:00")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(AppTheme.primaryText(hour: currentHour))
             }

@@ -16,6 +16,7 @@ struct WeatherAPIResponse: Decodable {
 
 struct APILocation: Decodable {
     let name: String
+    let localtime: String
 }
 
 struct APICurrent: Decodable {

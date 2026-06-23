@@ -24,7 +24,13 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func requestPermission() {
-        manager.requestWhenInUseAuthorization()
+        if manager.authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        } else if manager.authorizationStatus == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways {
+            manager.requestLocation()
+        } else {
+            locationError = "Location access denied. Please enable it in Settings."
+        }
     }
     
     func requestLocation() {

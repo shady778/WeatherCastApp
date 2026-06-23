@@ -166,6 +166,13 @@ struct MainDashboardView: View {
                     }
                 }
             }
+            .onReceive(locationManager.$locationError) { error in
+                if error != nil, viewModel.cityWeather == nil, !viewModel.isLoading {
+                    Task {
+                        await viewModel.fetchWeather(for: "Alexandria")
+                    }
+                }
+            }
         }
     }
     

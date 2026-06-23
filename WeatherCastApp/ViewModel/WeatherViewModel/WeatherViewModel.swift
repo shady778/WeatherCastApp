@@ -46,4 +46,27 @@ class WeatherViewModel: ObservableObject {
         
         isLoading = false
     }
+    
+    func fetchWeatherForLocation(lat: Double, lon: Double) async {
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            let result = try await repository.getWeather(lat: lat, lon: lon)
+            
+            self.cityWeather = result.cityWeather
+            self.dailyForecasts = result.dailyForecast
+            self.hourlyForecasts = result.hourlyForecast
+            self.metrics = result.metrics
+            
+            let freshCity = result.cityWeather
+            if !savedCities.contains(where: { $0.city.lowercased() == freshCity.city.lowercased() }) {
+                savedCities.append(freshCity)
+            }
+        } catch {
+            self.errorMessage = error.localizedDescription
+        }
+        
+        isLoading = false
+    }
 }

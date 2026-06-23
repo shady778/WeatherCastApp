@@ -7,6 +7,7 @@ struct MainDashboardView: View {
     @State private var navigateToHourly: Bool = false
     
     @StateObject private var viewModel = WeatherViewModel()
+    @StateObject private var locationManager = LocationManager()
     
     private var currentHour: Int {
         viewModel.cityWeather?.localHour ?? Calendar.current.component(.hour, from: Date())
@@ -95,7 +96,7 @@ struct MainDashboardView: View {
                             .foregroundStyle(AppTheme.primaryText(hour: currentHour))
                         Button("Retry") {
                             Task {
-                                await viewModel.fetchWeather(for: viewModel.cityWeather?.city ?? "Alexandria")
+                                await fetchForCurrentLocation()
                             }
                         }
                         .buttonStyle(.borderedProminent)
@@ -124,9 +125,34 @@ struct MainDashboardView: View {
             }
             .task {
                 if viewModel.cityWeather == nil {
-                    await viewModel.fetchWeather(for: "Alexandria")
+                    locationManager.requestPermission()
                 }
             }
+            .onReceive(locationManager.$userLatitude.combineLatest(locationManager.$userLongitude)) { lat, lon in
+                guard let lat, let lon, viewModel.cityWeather == nil, !viewModel.isLoading else { return }
+                Task {
+                    await viewModel.fetchWeatherForLocation(lat: lat, lon: lon)
+                }
+            }
+            .onReceive(locationManager.$authorizationStatus) { status in
+                if status == .denied || status == .restricted {
+                    if viewModel.cityWeather == nil && !viewModel.isLoading {
+                        Task {
+                            await viewModel.fetchWeather(for: "Alexandria")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helpers
+    
+    private func fetchForCurrentLocation() async {
+        if let lat = locationManager.userLatitude, let lon = locationManager.userLongitude {
+            await viewModel.fetchWeatherForLocation(lat: lat, lon: lon)
+        } else {
+            await viewModel.fetchWeather(for: viewModel.cityWeather?.city ?? "Alexandria")
         }
     }
     
@@ -138,6 +164,24 @@ struct MainDashboardView: View {
                 Image(systemName: "list.bullet")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(AppTheme.primaryText(hour: currentHour))
+                    .frame(width: 40, height: 40)
+                    .glassCard(hour: currentHour, cornerRadius: 12)
+            }
+            
+            Spacer()
+            
+            // Current location button
+            Button {
+                Task {
+                    locationManager.requestLocation()
+                    // Small delay to let location update arrive
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    await fetchForCurrentLocation()
+                }
+            } label: {
+                Image(systemName: "location.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppTheme.accent(hour: currentHour))
                     .frame(width: 40, height: 40)
                     .glassCard(hour: currentHour, cornerRadius: 12)
             }

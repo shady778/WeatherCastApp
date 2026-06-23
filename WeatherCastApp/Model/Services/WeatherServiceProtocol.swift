@@ -17,4 +17,6 @@ struct WeatherResult {
 
 protocol WeatherServiceProtocol {
     func fetchWeather(for city: String) async throws -> WeatherResult
+    func fetchWeather(lat: Double, lon: Double) async throws -> WeatherResult
+    func searchCities(query: String) async throws -> [SearchResult]
 }

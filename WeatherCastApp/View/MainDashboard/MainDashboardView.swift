@@ -7,14 +7,7 @@ struct MainDashboardView: View {
     @State private var selectedForecast: DailyForecast? = nil
     @State private var navigateToHourly: Bool = false
     
-    @State private var cityWeather: CityWeather? = nil
-    @State private var dailyForecasts: [DailyForecast] = []
-    @State private var hourlyForecasts: [HourlyWeather] = []
-    @State private var metrics: [WeatherMetric] = []
-    @State private var isLoading: Bool = false
-    @State private var errorMessage: String? = nil
-    
-    @State private var savedCities: [CityWeather] = []
+    @StateObject private var viewModel = WeatherViewModel()
     
     var body: some View {
         NavigationStack {
@@ -22,11 +15,11 @@ struct MainDashboardView: View {
                 AppTheme.background(hour: currentHour)
                     .ignoresSafeArea()
                 
-                if isLoading {
+                if viewModel.isLoading {
                     ProgressView()
                         .scaleEffect(1.5)
                         .tint(AppTheme.primaryText(hour: currentHour))
-                } else if let city = cityWeather {
+                } else if let city = viewModel.cityWeather {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 24) {
                             topBar
@@ -65,12 +58,12 @@ struct MainDashboardView: View {
                                         .foregroundStyle(AppTheme.secondaryText(hour: currentHour))
                                 }
                                 
-                                ForEach(dailyForecasts) { forecast in
+                                ForEach(viewModel.dailyForecasts) { forecast in
                                     ForecastRow(forecast: forecast, hour: currentHour) {
                                         selectedForecast = forecast
                                         navigateToHourly = true
                                     }
-                                    if forecast.id != dailyForecasts.last?.id {
+                                    if forecast.id != viewModel.dailyForecasts.last?.id {
                                         Divider()
                                             .background(AppTheme.glassBorder(hour: currentHour))
                                     }
@@ -81,14 +74,14 @@ struct MainDashboardView: View {
                             .padding(.horizontal)
                             
                             LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
-                                ForEach(metrics) { metric in
+                                ForEach(viewModel.metrics) { metric in
                                     MetricCard(metric: metric, hour: currentHour)
                                 }
                             }
                             .padding(.horizontal)
                         }
                     }
-                } else if let error = errorMessage {
+                } else if let error = viewModel.errorMessage {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 50))
@@ -99,7 +92,7 @@ struct MainDashboardView: View {
                             .foregroundStyle(AppTheme.primaryText(hour: currentHour))
                         Button("Retry") {
                             Task {
-                                await testDirectAPICall(cityName: cityWeather?.city ?? "Alexandria")
+                                await viewModel.fetchWeather(for: viewModel.cityWeather?.city ?? "Alexandria")
                             }
                         }
                         .buttonStyle(.borderedProminent)
@@ -108,51 +101,29 @@ struct MainDashboardView: View {
                 }
             }
             .navigationDestination(isPresented: $navigateToHourly) {
-                if let city = cityWeather, let selectedForecast = selectedForecast {
-                    HourlyForecastView(city: city, selectedDay: selectedForecast, hourly: hourlyForecasts, hour: currentHour)
+                if let city = viewModel.cityWeather, let selectedForecast = selectedForecast {
+                    HourlyForecastView(city: city, selectedDay: selectedForecast, hourly: viewModel.hourlyForecasts, hour: currentHour)
                 }
             }
             .sheet(isPresented: $showSearch) {
                 LocationSearchView(hour: currentHour) { selectedCity in
                     Task {
-                        await testDirectAPICall(cityName: selectedCity)
+                        await viewModel.fetchWeather(for: selectedCity)
                     }
                 }
             }
             .sheet(isPresented: $showSavedLocations) {
-                SavedLocationsView(hour: currentHour, savedLocations: savedCities) { selectedCity in
+                SavedLocationsView(hour: currentHour, savedLocations: viewModel.savedCities) { selectedCity in
                     Task {
-                        await testDirectAPICall(cityName: selectedCity)
+                        await viewModel.fetchWeather(for: selectedCity)
                     }
                 }
             }
             .task {
-                await testDirectAPICall()
+                if viewModel.cityWeather == nil {
+                    await viewModel.fetchWeather(for: "Alexandria")
+                }
             }
-        }
-    }
-    
-    private func testDirectAPICall(cityName: String = "Alexandria") async {
-        isLoading = true
-        errorMessage = nil
-        
-        let service = WeatherService()
-        do {
-            let result = try await service.fetchWeather(for: cityName)
-            self.cityWeather = result.cityWeather
-            self.dailyForecasts = result.dailyForecast
-            self.hourlyForecasts = result.hourlyForecast
-            self.metrics = result.metrics
-            
-                    let freshCity = result.cityWeather
-            if !savedCities.contains(where: { $0.city.lowercased() == freshCity.city.lowercased() }) {
-                savedCities.append(freshCity)
-            }
-            
-            self.isLoading = false
-        } catch {
-            self.errorMessage = error.localizedDescription
-            self.isLoading = false
         }
     }
     

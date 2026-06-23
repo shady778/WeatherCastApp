@@ -104,20 +104,20 @@ struct HourlyForecastView: View {
     }
 }
  
-#Preview("Hourly — Morning") {
-    HourlyForecastView(
-        city: MockWeather.cairo,
-        selectedDay: MockWeather.threeDayForecast[0],
-        hourly: MockWeather.todayHourly,
-        hour: 12
-    )
-}
- 
-#Preview("Hourly — Night") {
-    HourlyForecastView(
-        city: MockWeather.cairo,
-        selectedDay: MockWeather.threeDayForecast[1],
-        hourly: MockWeather.todayHourly,
-        hour: 21
-    )
-}
+//#Preview("Hourly — Morning") {
+//    HourlyForecastView(
+//        city: MockWeather.cairo,
+//        selectedDay: MockWeather.threeDayForecast[0],
+//        hourly: MockWeather.todayHourly,
+//        hour: 12
+//    )
+//}
+// 
+//#Preview("Hourly — Night") {
+//    HourlyForecastView(
+//        city: MockWeather.cairo,
+//        selectedDay: MockWeather.threeDayForecast[1],
+//        hourly: MockWeather.todayHourly,
+//        hour: 21
+//    )
+//}

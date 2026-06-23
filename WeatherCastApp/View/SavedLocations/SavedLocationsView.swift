@@ -1,18 +1,12 @@
-//
-//  SavedLocationsView.swift
-//  WeatherCastApp
-//
-//  Created by shady ramadan on 21/06/2026.
-//
-
 import SwiftUI
 
 struct SavedLocationsView: View {
     let hour: Int
+    let savedLocations: [CityWeather]
+    var onCitySelected: ((String) -> Void)?
     
     @Environment(\.dismiss) private var dismiss
-    @State private var savedLocations: [CityWeather] = [MockWeather.cairo, MockWeather.london, MockWeather.tokyo]
-    @State private var selectedCity: CityWeather = MockWeather.cairo
+    @State private var selectedCity: CityWeather? = nil
 
     var body: some View {
         ZStack {
@@ -54,10 +48,11 @@ struct SavedLocationsView: View {
                             ForEach(savedLocations) { city in
                                 SavedLocationCard(
                                     city: city,
-                                    isCurrent: city == selectedCity,
+                                    isCurrent: selectedCity == city,
                                     hour: hour
                                 ) {
                                     selectedCity = city
+                                    onCitySelected?(city.city)
                                     dismiss()
                                 }
                             }
@@ -69,13 +64,4 @@ struct SavedLocationsView: View {
             }
         }
     }
-}
-
-
-#Preview("Saved Locations — Morning") {
-    SavedLocationsView(hour: 10)
-}
-
-#Preview("Saved Locations — Night") {
-    SavedLocationsView(hour: 21)
 }

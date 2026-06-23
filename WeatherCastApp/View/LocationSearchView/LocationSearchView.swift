@@ -2,18 +2,10 @@ import SwiftUI
 
 struct LocationSearchView: View {
     let hour: Int
+    var onCitySelected: ((String) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var query: String = ""
-    
-    private let allCities: [CityWeather] = MockWeather.allCities
-
-    private var filteredCities: [CityWeather] {
-        if query.trimmingCharacters(in: .whitespaces).isEmpty {
-            return allCities
-        }
-        return allCities.filter { $0.city.lowercased().contains(query.lowercased()) }
-    }
 
     var body: some View {
         ZStack {
@@ -43,10 +35,13 @@ struct LocationSearchView: View {
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(AppTheme.secondaryText(hour: hour))
 
-                    TextField("Search city…", text: $query)
+                    TextField("Enter city name…", text: $query)
                         .font(.system(size: 16, design: .rounded))
                         .foregroundStyle(AppTheme.primaryText(hour: hour))
                         .tint(AppTheme.accent(hour: hour))
+                        .onSubmit {
+                            submitSearch()
+                        }
 
                     if !query.isEmpty {
                         Button { query = "" } label: {
@@ -62,65 +57,55 @@ struct LocationSearchView: View {
                 .padding(.horizontal, 20)
 
                 ScrollView {
-                    LazyVStack(spacing: 10) {
-                        if filteredCities.isEmpty {
+                    VStack(spacing: 16) {
+                        if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+                            Button {
+                                submitSearch()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "cloud.sun.fill")
+                                        .font(.system(size: 22))
+                                        .foregroundStyle(AppTheme.accent(hour: hour))
+                                    
+                                    Text("Get weather for \"\(query)\"")
+                                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                                        .foregroundStyle(AppTheme.primaryText(hour: hour))
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(AppTheme.secondaryText(hour: hour))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 16)
+                                .glassCard(hour: hour, cornerRadius: 16)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
                             VStack(spacing: 12) {
                                 Image(systemName: "magnifyingglass")
-                                    .font(.system(size: 44))
+                                    .font(.system(size: 40))
                                     .foregroundStyle(AppTheme.tertiaryText(hour: hour))
-                                Text("No cities found")
-                                    .font(.system(size: 17, weight: .medium, design: .rounded))
+                                Text("Type a city name above to search")
+                                    .font(.system(size: 15, design: .rounded))
                                     .foregroundStyle(AppTheme.secondaryText(hour: hour))
                             }
                             .padding(.top, 60)
-                        } else {
-                            ForEach(filteredCities) { city in
-                                cityRow(city)
-                            }
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 16)
-                    .padding(.bottom, 40)
+                    .padding(.top, 24)
                 }
             }
         }
     }
 
-    private func cityRow(_ city: CityWeather) -> some View {
-        Button {
+    private func submitSearch() {
+        let cleanedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cleanedQuery.isEmpty {
+            onCitySelected?(cleanedQuery)
             dismiss()
-        } label: {
-            HStack(spacing: 14) {
-                WeatherIcon(sfSymbol: city.condition.sfSymbol, size: 28, hour: hour)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(city.city)
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
-                        .foregroundStyle(AppTheme.primaryText(hour: hour))
-                    Text(city.condition.label)
-                        .font(.system(size: 13, design: .rounded))
-                        .foregroundStyle(AppTheme.secondaryText(hour: hour))
-                }
-
-                Spacer()
-
-                Text("\(city.temperature)°")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppTheme.primaryText(hour: hour))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .glassCard(hour: hour, cornerRadius: 16)
         }
-        .buttonStyle(.plain)
     }
-}
-
-#Preview("Search — Morning") {
-    LocationSearchView(hour: 10)
-}
-
-#Preview("Search — Night") {
-    LocationSearchView(hour: 21)
 }

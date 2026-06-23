@@ -11,6 +11,9 @@ import SwiftUI
 struct GlassCard: ViewModifier {
     let hour: Int
     var cornerRadius: CGFloat = 20
+   private var isMorning: Bool {
+        hour >= 6 && hour < 18
+    }
 
     func body(content: Content) -> some View {
         content
@@ -21,6 +24,7 @@ struct GlassCard: ViewModifier {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(.ultraThinMaterial)
                     )
+                    .environment(\.colorScheme, isMorning ? .light : .dark)
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .stroke(AppTheme.glassBorder(hour: hour), lineWidth: 1)

@@ -155,6 +155,14 @@ struct MainDashboardView: View {
                 if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
                     await bootstrapInitialLoad()
                 }
+                
+                // Fallback if location takes too long (e.g. Simulator with "None" location)
+                Task {
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    if viewModel.cityWeather == nil {
+                        await bootstrapInitialLoad()
+                    }
+                }
             }
             .onReceive(locationManager.$userLatitude) { newLat in
                 if let lat = newLat, let lon = locationManager.userLongitude {

@@ -13,7 +13,7 @@ struct WeatherCastAppApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainDashboardView()
+            SplashView()
                 .modelContainer(for:SavedCity.self)
         }
     }

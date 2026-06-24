@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct SplashView: View {
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var isActive = false
     @State private var startIntro = false
     @State private var continuousAnimation = false
@@ -15,8 +16,13 @@ struct SplashView: View {
     
     var body: some View {
         if isActive {
-            MainDashboardView()
-                .transition(.opacity)
+            if hasCompletedOnboarding {
+                MainDashboardView()
+                    .transition(.opacity)
+            } else {
+                OnboardingView()
+                    .transition(.opacity)
+            }
         } else {
             ZStack {
                 LinearGradient(

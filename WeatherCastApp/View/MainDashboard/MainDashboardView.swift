@@ -11,7 +11,6 @@ struct MainDashboardView: View {
     @State private var navigateToHourly: Bool = false
 
     @StateObject private var viewModel = WeatherViewModel()
-    @StateObject private var locationManager = LocationManager()
 
     private var currentHour: Int {
         viewModel.cityWeather?.localHour ?? Calendar.current.component(.hour, from: Date())
@@ -110,14 +109,13 @@ struct MainDashboardView: View {
                             .foregroundStyle(AppTheme.primaryText(hour: currentHour))
                         Button("Retry") {
                             Task {
-                                await fetchForCurrentLocation()
+                                await bootstrapInitialLoad()
                             }
                         }
                         .buttonStyle(.borderedProminent)
                     }
                     .padding()
                 } else {
-                    // Should rarely render now — .task below guarantees a fetch fires.
                     ProgressView()
                         .scaleEffect(1.5)
                         .tint(AppTheme.primaryText(hour: currentHour))
@@ -149,64 +147,17 @@ struct MainDashboardView: View {
                     }
                 )
             }
-            // ── FIX #1 ──────────────────────────────────────────
-            // The old code only requested location permission and
-            // then waited passively for delegate callbacks that may
-            // never arrive (e.g. simulator with no location set,
-            // or the user dismissing the permission dialog without
-            // a clear allow/deny). Nothing else ever called fetch.
-            // We now ALWAYS kick off a real fetch from this task,
-            // with a bounded wait for GPS before falling back.
             .task {
                 viewModel.setupContext(modelContext)
                 guard viewModel.cityWeather == nil else { return }
                 await bootstrapInitialLoad()
             }
-            // Still listen for location updates that arrive in time
-            // to override the fallback as soon as they're ready.
-            .onReceive(locationManager.$userLatitude.combineLatest(locationManager.$userLongitude)) { lat, lon in
-                guard let lat, let lon, viewModel.cityWeather == nil, !viewModel.isLoading else { return }
-                Task {
-                    await viewModel.fetchWeatherForLocation(lat: lat, lon: lon)
-                }
-            }
         }
     }
 
-    // MARK: - Helpers
-
-    /// Guarantees the first screen always ends up with either data
-    /// or a visible error — never stuck on an infinite spinner.
     private func bootstrapInitialLoad() async {
-        locationManager.requestPermission()
-
-        // Give CoreLocation a short, bounded window to respond.
-        // If it doesn't arrive in time, fall back to a default city
-        // instead of waiting forever.
-        for _ in 0..<10 { // ~3 seconds total (10 x 0.3s)
-            if viewModel.cityWeather != nil { return }
-            if let lat = locationManager.userLatitude, let lon = locationManager.userLongitude {
-                await viewModel.fetchWeatherForLocation(lat: lat, lon: lon)
-                return
-            }
-            if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
-                break // no point waiting further — go straight to fallback
-            }
-            try? await Task.sleep(nanoseconds: 300_000_000)
-        }
-
-        // Fallback: no GPS fix in time (denied, restricted, simulator
-        // with no location, or user never responded to the prompt).
-        if viewModel.cityWeather == nil {
+              if viewModel.cityWeather == nil {
             await viewModel.fetchWeather(for: "Alexandria")
-        }
-    }
-
-    private func fetchForCurrentLocation() async {
-        if let lat = locationManager.userLatitude, let lon = locationManager.userLongitude {
-            await viewModel.fetchWeatherForLocation(lat: lat, lon: lon)
-        } else {
-            await viewModel.fetchWeather(for: viewModel.cityWeather?.city ?? "Alexandria")
         }
     }
 
@@ -218,23 +169,6 @@ struct MainDashboardView: View {
                 Image(systemName: "list.bullet")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(AppTheme.primaryText(hour: currentHour))
-                    .frame(width: 40, height: 40)
-                    .glassCard(hour: currentHour, cornerRadius: 12)
-            }
-
-            Spacer()
-
-            // Current location button
-            Button {
-                Task {
-                    locationManager.requestLocation()
-                    try? await Task.sleep(nanoseconds: 1_500_000_000)
-                    await fetchForCurrentLocation()
-                }
-            } label: {
-                Image(systemName: "location.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(AppTheme.accent(hour: currentHour))
                     .frame(width: 40, height: 40)
                     .glassCard(hour: currentHour, cornerRadius: 12)
             }

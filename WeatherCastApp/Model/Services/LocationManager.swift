@@ -24,18 +24,25 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func requestPermission() {
-        manager.requestWhenInUseAuthorization()
+        if manager.authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        } else if manager.authorizationStatus == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways {
+            manager.startUpdatingLocation()
+        } else {
+            locationError = "Location access denied. Please enable it in Settings."
+        }
     }
     
     func requestLocation() {
         locationError = nil
-        manager.requestLocation()
+        manager.startUpdatingLocation()
     }
     
     // MARK: - CLLocationManagerDelegate
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
+        manager.stopUpdatingLocation()
         userLatitude = location.coordinate.latitude
         userLongitude = location.coordinate.longitude
     }
@@ -49,7 +56,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
-            manager.requestLocation()
+            manager.startUpdatingLocation()
         case .denied, .restricted:
             locationError = "Location access denied. Please enable it in Settings."
         default:

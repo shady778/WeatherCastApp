@@ -1,27 +1,27 @@
 import SwiftUI
 import SwiftData
+import Combine
 
 struct MainDashboardView: View {
     @Environment(\.modelContext) private var modelContext
-    
+
     @State private var showSearch: Bool = false
     @State private var showSavedLocations: Bool = false
     @State private var selectedForecast: DailyForecast? = nil
     @State private var navigateToHourly: Bool = false
-    
+
     @StateObject private var viewModel = WeatherViewModel()
-    @StateObject private var locationManager = LocationManager()
-    
+
     private var currentHour: Int {
         viewModel.cityWeather?.localHour ?? Calendar.current.component(.hour, from: Date())
     }
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
                 AppTheme.background(hour: currentHour)
                     .ignoresSafeArea()
-                
+
                 if viewModel.isLoading {
                     ProgressView()
                         .scaleEffect(1.5)
@@ -32,13 +32,13 @@ struct MainDashboardView: View {
                             topBar
                                 .padding(.horizontal)
                                 .padding(.top, 12)
-                            
+
                             VStack(spacing: 6) {
                                 HStack(spacing: 10) {
                                     Text(city.city)
                                         .font(.system(size: 32, weight: .bold, design: .rounded))
                                         .foregroundStyle(AppTheme.primaryText(hour: currentHour))
-                                    
+
                                     Button {
                                         viewModel.toggleSaveCurrentCity()
                                     } label: {
@@ -47,23 +47,23 @@ struct MainDashboardView: View {
                                             .foregroundStyle(AppTheme.accent(hour: currentHour))
                                     }
                                 }
-                                
+
                                 Text("\(city.temperature)°")
                                     .font(.system(size: 90, weight: .thin, design: .rounded))
                                     .foregroundStyle(AppTheme.primaryText(hour: currentHour))
-                                
+
                                 Text(city.condition.label)
                                     .font(.system(size: 20, weight: .medium, design: .rounded))
                                     .foregroundStyle(AppTheme.secondaryText(hour: currentHour))
-                                
+
                                 Text("H:\(city.high)°  L:\(city.low)°")
                                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                                     .foregroundStyle(AppTheme.secondaryText(hour: currentHour))
-                                
+
                                 WeatherIcon(sfSymbol: city.condition.sfSymbol, size: 70, hour: currentHour)
                                     .padding(.top, 8)
                             }
-                            
+
                             VStack(alignment: .leading, spacing: 14) {
                                 HStack {
                                     Image(systemName: "calendar")
@@ -74,7 +74,7 @@ struct MainDashboardView: View {
                                         .tracking(1.2)
                                         .foregroundStyle(AppTheme.secondaryText(hour: currentHour))
                                 }
-                                
+
                                 ForEach(viewModel.dailyForecasts) { forecast in
                                     ForecastRow(forecast: forecast, hour: currentHour) {
                                         selectedForecast = forecast
@@ -89,7 +89,7 @@ struct MainDashboardView: View {
                             .padding(18)
                             .glassCard(hour: currentHour)
                             .padding(.horizontal)
-                            
+
                             LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
                                 ForEach(viewModel.metrics) { metric in
                                     MetricCard(metric: metric, hour: currentHour)
@@ -109,12 +109,16 @@ struct MainDashboardView: View {
                             .foregroundStyle(AppTheme.primaryText(hour: currentHour))
                         Button("Retry") {
                             Task {
-                                await fetchForCurrentLocation()
+                                await bootstrapInitialLoad()
                             }
                         }
                         .buttonStyle(.borderedProminent)
                     }
                     .padding()
+                } else {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .tint(AppTheme.primaryText(hour: currentHour))
                 }
             }
             .navigationDestination(isPresented: $navigateToHourly) {
@@ -138,46 +142,25 @@ struct MainDashboardView: View {
                             await viewModel.fetchWeather(for: selectedCity)
                         }
                     },
-                    onDeleteCity: {
-                        cityToDelete in
+                    onDeleteCity: { cityToDelete in
                         viewModel.deleteCity(cityToDelete)
                     }
                 )
             }
             .task {
                 viewModel.setupContext(modelContext)
-                if viewModel.cityWeather == nil {
-                    locationManager.requestPermission()
-                }
-            }
-            .onReceive(locationManager.$userLatitude.combineLatest(locationManager.$userLongitude)) { lat, lon in
-                guard let lat, let lon, viewModel.cityWeather == nil, !viewModel.isLoading else { return }
-                Task {
-                    await viewModel.fetchWeatherForLocation(lat: lat, lon: lon)
-                }
-            }
-            .onReceive(locationManager.$authorizationStatus) { status in
-                if status == .denied || status == .restricted {
-                    if viewModel.cityWeather == nil && !viewModel.isLoading {
-                        Task {
-                            await viewModel.fetchWeather(for: "Alexandria")
-                        }
-                    }
-                }
+                guard viewModel.cityWeather == nil else { return }
+                await bootstrapInitialLoad()
             }
         }
     }
-    
-    // MARK: - Helpers
-    
-    private func fetchForCurrentLocation() async {
-        if let lat = locationManager.userLatitude, let lon = locationManager.userLongitude {
-            await viewModel.fetchWeatherForLocation(lat: lat, lon: lon)
-        } else {
-            await viewModel.fetchWeather(for: viewModel.cityWeather?.city ?? "Alexandria")
+
+    private func bootstrapInitialLoad() async {
+              if viewModel.cityWeather == nil {
+            await viewModel.fetchWeather(for: "Alexandria")
         }
     }
-    
+
     private var topBar: some View {
         HStack {
             Button {
@@ -189,27 +172,9 @@ struct MainDashboardView: View {
                     .frame(width: 40, height: 40)
                     .glassCard(hour: currentHour, cornerRadius: 12)
             }
-            
+
             Spacer()
-            
-            // Current location button
-            Button {
-                Task {
-                    locationManager.requestLocation()
-                    // Small delay to let location update arrive
-                    try? await Task.sleep(nanoseconds: 1_500_000_000)
-                    await fetchForCurrentLocation()
-                }
-            } label: {
-                Image(systemName: "location.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(AppTheme.accent(hour: currentHour))
-                    .frame(width: 40, height: 40)
-                    .glassCard(hour: currentHour, cornerRadius: 12)
-            }
-            
-            Spacer()
-            
+
             Button {
                 showSearch = true
             } label: {
@@ -224,9 +189,9 @@ struct MainDashboardView: View {
                 .padding(.vertical, 10)
                 .glassCard(hour: currentHour, cornerRadius: 14)
             }
-            
+
             Spacer()
-            
+
             HStack(spacing: 4) {
                 Image(systemName: AppTheme.isMorning(hour: currentHour) ? "sun.max.fill" : "moon.fill")
                     .symbolRenderingMode(.multicolor)

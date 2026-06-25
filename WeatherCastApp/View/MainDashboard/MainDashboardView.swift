@@ -11,6 +11,7 @@ struct MainDashboardView: View {
     @State private var navigateToHourly: Bool = false
 
     @StateObject private var viewModel = WeatherViewModel()
+    @StateObject private var locationManager = LocationManager()
 
     private var currentHour: Int {
         viewModel.cityWeather?.localHour ?? Calendar.current.component(.hour, from: Date())
@@ -150,7 +151,24 @@ struct MainDashboardView: View {
             .task {
                 viewModel.setupContext(modelContext)
                 guard viewModel.cityWeather == nil else { return }
-                await bootstrapInitialLoad()
+                locationManager.requestPermission()
+                if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
+                    await bootstrapInitialLoad()
+                }
+            }
+            .onReceive(locationManager.$userLatitude) { newLat in
+                if let lat = newLat, let lon = locationManager.userLongitude {
+                    Task {
+                        await viewModel.fetchWeatherForLocation(lat: lat, lon: lon)
+                    }
+                }
+            }
+            .onReceive(locationManager.$locationError) { newErr in
+                if newErr != nil && viewModel.cityWeather == nil {
+                    Task {
+                        await bootstrapInitialLoad()
+                    }
+                }
             }
         }
     }

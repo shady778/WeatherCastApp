@@ -1,21 +1,3 @@
-//
-//  GIFBackgroundView.swift
-//  WeatherCastApp
-//
-//  Plays an animated GIF from the app bundle as a looping
-//  full-screen background. Uses WKWebView since SwiftUI has
-//  no native GIF support — no third-party library required.
-//
-//  Usage:
-//    GIFBackgroundView(gifName: "morning_sky")
-//        .ignoresSafeArea()
-//
-//  Setup:
-//    1. Add morning_sky.gif and evening_sky.gif to the project
-//       (drag into the project navigator, NOT into Assets.xcassets)
-//    2. Check "Copy items if needed" and confirm your app target
-//       is checked under Target Membership
-//
 
 import SwiftUI
 import WebKit
@@ -37,13 +19,7 @@ struct GIFBackgroundView: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // FIX: SwiftUI calls updateUIView on every re-render of the
-        // parent view (any @Published change ticking, navigation,
-        // sheet presentation, etc). Reloading the HTML every single
-        // time restarts the GIF mid-frame and can briefly leave
-        // WKWebView showing a blank/white page during the reload.
-        // Only reload when the GIF name has actually changed
-        // (morning -> evening).
+       
         guard context.coordinator.lastLoadedGIFName != gifName else { return }
 
         loadGIF(into: webView)
